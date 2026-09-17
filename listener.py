@@ -18,6 +18,8 @@ CONFIG_PATH = APP_DIR / "config.json"
 AMIGO_RE = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 VALID_EXTS = {".mp3", ".wav", ".ogg", ".opus", ".flac", ".m4a", ".aac"}
 
+DURACAO_MAX = 4
+
 PLAYERS = (
     ("pw-play", ("%f",)),
     ("paplay", ("%f",)),
@@ -47,11 +49,14 @@ def valid_amigo(nome):
 
 
 def play_sound(path):
+    timeout = shutil.which("timeout")
     for nome, args in PLAYERS:
         exe = shutil.which(nome)
         if not exe:
             continue
         cmd = [exe] + [a.replace("%f", str(path)) for a in args]
+        if timeout and DURACAO_MAX > 0:
+            cmd = [timeout, str(DURACAO_MAX)] + cmd
         try:
             subprocess.Popen(
                 cmd,
