@@ -51,6 +51,8 @@ def valid_amigo(nome):
 def play_sound(path):
     timeout = shutil.which("timeout")
     for nome, args in PLAYERS:
+        if nome == "aplay" and path.suffix.lower() != ".wav":
+            continue
         exe = shutil.which(nome)
         if not exe:
             continue
@@ -58,16 +60,25 @@ def play_sound(path):
         if timeout and DURACAO_MAX > 0:
             cmd = [timeout, str(DURACAO_MAX)] + cmd
         try:
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 cmd,
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            return True
         except OSError:
             continue
-    return False
+        try:
+            rc = proc.wait(timeout=1.0)
+        except subprocess.TimeoutExpired:
+            return nome
+        if rc == 0:
+            return nome
+        sys.stderr.write(
+            "[commit-sounds] %s falhou (rc=%s) em %s; tentando outro player\n"
+            % (nome, rc, path.name)
+        )
+    return None
 
 
 def parse_multipart(content_type, body):
@@ -188,9 +199,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(404, {"erro": "nao tem som para o amigo %s" % amigo})
             return
         som_path = sorted(matches)[0]
-        if play_sound(som_path):
-            self._send_json(200, {"ok": True, "amigo": amigo, "som": som_path.name})
+        player = play_sound(som_path)
+        if player:
+            self.log_message("tocando %s (amigo=%s) com %s", som_path.name, amigo, player)
+            self._send_json(200, {"ok": True, "amigo": amigo, "som": som_path.name, "player": player})
         else:
+            self.log_message("sem player p/ %s (amigo=%s)", som_path.name, amigo)
             self._send_json(500, {"erro": "nenhum player de audio disponivel"})
 
 

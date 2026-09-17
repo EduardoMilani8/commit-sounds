@@ -2,16 +2,25 @@
 set -u
 
 CONF="$HOME/.git-hooks/hook-config.sh"
+LOG="$HOME/.git-hooks/pre-push.log"
+
+log() {
+    printf '%s %s\n' "$(date '+%F %T')" "$1" >> "$LOG"
+}
+
 if [[ ! -f "$CONF" ]]; then
+    log "sem config ($CONF) - nada a fazer"
     exit 0
 fi
 # shellcheck disable=SC1090
 source "$CONF"
 
 if [[ -z "${CS_AMIGO:-}" ]]; then
+    log "CS_AMIGO vazio - nada a fazer"
     exit 0
 fi
 if [[ ! -v CS_TARGETS ]] || [[ ${#CS_TARGETS[@]} -eq 0 ]]; then
+    log "CS_TARGETS vazio - nada a fazer"
     exit 0
 fi
 
@@ -32,19 +41,28 @@ while read -r local_ref local_oid remote_ref remote_oid; do
 done
 
 if [[ "$pushing" -ne 1 ]]; then
+    log "push sem ref de branch/tag - nada a fazer"
     exit 0
 fi
 
+log "== pre-push de $CS_AMIGO em $(hostname) =="
 for alvo in "${CS_TARGETS[@]}"; do
     url="${alvo%%|*}"
     token="${alvo#*|}"
     if [[ -z "$url" ]]; then
+        log "  alvo invalido (vazio): [$alvo]"
         continue
     fi
     dados="{\"secreto\":\"$token\",\"amigo\":\"$CS_AMIGO\"}"
-    curl -sf --max-time 2 -X POST "$url/play" \
-        -H 'Content-Type: application/json' \
-        -d "$dados" >/dev/null 2>&1 || true
+    saida="$(curl -sS --max-time 2 -w $'\n%{http_code}' -X POST "$url/play" \
+        -H 'Content-Type: application/json' -d "$dados" 2>&1)"
+    codigo="$(printf '%s' "$saida" | tail -n1)"
+    corpo="$(printf '%s' "$saida" | sed '$d' | tr '\n' ' ')"
+    if [[ -z "$codigo" || "$codigo" == "000" ]]; then
+        log "  -> $url: FALHA de conexao"
+    else
+        log "  -> $url: HTTP $codigo $corpo"
+    fi
 done
 
 exit 0

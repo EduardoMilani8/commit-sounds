@@ -4,12 +4,62 @@
 # uso:
 #   ./testar-som.sh                          usa a config do hook (~/.git-hooks/hook-config.sh)
 #   ./testar-som.sh URL SECRETO APELIDO      testa um PC específico na mão
+#   ./testar-som.sh --local                  testa o ÁUDIO deste PC (sem rede)
 set -u
 
 CONF="${CS_CONF:-$HOME/.git-hooks/hook-config.sh}"
 URL="${1:-}"
 TOKEN="${2:-}"
 AMIGO="${3:-}"
+
+if [[ "${1:-}" == "--local" ]]; then
+    echo "== teste de AUDIO LOCAL (deste PC) =="
+    achou=0
+    for p in pw-play paplay aplay ffplay; do
+        if command -v "$p" >/dev/null 2>&1; then
+            echo "  player: $p = OK"
+            achou=1
+        else
+            echo "  player: $p = NAO instalado"
+        fi
+    done
+    if [[ "$achou" -eq 0 ]]; then
+        echo "  NENHUM player de audio instalado aqui! (apt install pulseaudio-utils ffmpeg...) "
+        exit 1
+    fi
+    SOM="$(ls -1 "$HOME/.commit-sounds/sounds/"* 2>/dev/null | head -n1)"
+    if [[ -z "$SOM" ]]; then
+        echo "  nenhum som enviado ainda pra este PC -> rode: bash upload-som.sh SEU_SOM.mp3"
+        exit 1
+    fi
+    ext="${SOM##*.}"
+    ext="${ext,,}"
+    ok=0
+    for p in pw-play paplay aplay ffplay; do
+        command -v "$p" >/dev/null 2>&1 || continue
+        if [[ "$p" == "aplay" && "$ext" != "wav" ]]; then
+            echo "  $p: pulado (so toca wav)"
+            continue
+        fi
+        extra=()
+        [[ "$p" == "ffplay" ]] && extra=("-nodisp" "-autoexit")
+        echo "  tentando $p ..."
+        timeout 4 "$p" "${extra[@]}" "$SOM"
+        rc=$?
+        if [[ "$rc" -eq 0 || "$rc" -eq 124 ]]; then
+            echo "  $p reproduziu (rc=$rc)."
+            ok=1
+            break
+        fi
+        echo "  $p falhou (rc=$rc)."
+    done
+    if [[ "$ok" -eq 0 ]]; then
+        echo "  NENHUM player reproduziu esse arquivo neste PC." >&2
+        exit 1
+    fi
+    echo "  Audio OK neste PC."
+    exit 0
+fi
 
 if [[ -n "$URL" && -n "$TOKEN" && -n "$AMIGO" ]]; then
     TARGETS=("${URL}|${TOKEN}")
