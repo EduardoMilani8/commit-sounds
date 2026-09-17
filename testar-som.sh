@@ -116,7 +116,9 @@ for alvo in "${TARGETS[@]}"; do
             403) echo "     secreto errado -> confere o token no hook-config.sh e no config.json dele." ;;
             404) echo "     voce ainda NAO enviou seu som pra ele -> rode: bash upload-som.sh SEU_SOM.mp3" ;;
             400) echo "     apelido invalido (use letras, numeros, _ . -)." ;;
-            500) echo "     chegou, mas o PC dele nao tem player de audio." ;;
+            500) echo "     chegou, mas o PC dele NAO conseguiu reproduzir o arquivo."
+                 echo "     solucoes: no PC dele rode 'sudo apt install -y ffmpeg',"
+                 echo "     ou refaca seu som como .wav e reenvie (bash upload-som.sh som.wav)." ;;
         esac
         falhou=1
     fi
