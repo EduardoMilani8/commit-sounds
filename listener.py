@@ -23,7 +23,7 @@ WEB_INDEX = WEB_DIR / "index.html"
 AMIGO_RE = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 VALID_EXTS = {".mp3", ".wav", ".ogg", ".opus", ".flac", ".m4a", ".aac"}
 
-DURACAO_MAX = 4
+DURACAO_MAX = 5
 
 PLAYERS = (
     ("pw-play", ("%f",)),
