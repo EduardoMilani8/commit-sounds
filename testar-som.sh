@@ -44,7 +44,7 @@ if [[ "${1:-}" == "--local" ]]; then
         extra=()
         [[ "$p" == "ffplay" ]] && extra=("-nodisp" "-autoexit")
         echo "  tentando $p ..."
-        timeout 4 "$p" "${extra[@]}" "$SOM"
+        timeout 5 "$p" "${extra[@]}" "$SOM"
         rc=$?
         if [[ "$rc" -eq 0 || "$rc" -eq 124 ]]; then
             echo "  $p reproduziu (rc=$rc)."

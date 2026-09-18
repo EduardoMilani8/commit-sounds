@@ -191,7 +191,7 @@ uma com seu som.
   Muitos `pw-play`/`paplay` não decodificam mp3 por padrão e falham **em
   silêncio** — a causa nº 1 de "não tocou nada".
 - Formatos aceitos: `mp3, wav, ogg, opus, flac, m4a, aac`.
-- O som é cortado em **4 segundos** automaticamente (mais curto toca
+- O som é cortado em **5 segundos** automaticamente (mais curto toca
   inteiro).
 
 Se o amigo só tiver mp3 e o PC dele não reproduzir:
@@ -323,7 +323,7 @@ Aponte seu hook pro seu próprio PC (seu IP + seu secreto) e rode
 `bash upload-som.sh som.wav` pra você mesmo.
 
 ### "O som é cortado no meio!"
-De propósito: máximo de **4 segundos** por toque. Mude `DURACAO_MAX` no
+De propósito: máximo de **5 segundos** por toque. Mude `DURACAO_MAX` no
 `listener.py` se quiser outro valor.
 
 ### "Push up to date (não envia nada) não toca"
