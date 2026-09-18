@@ -28,17 +28,24 @@ if [[ ! -v CS_TARGETS ]] || [[ ${#CS_TARGETS[@]} -eq 0 ]]; then
     exit 1
 fi
 
-ALVO="${CS_TARGETS[0]}"
-URL="${ALVO%%|*}"
-TOKEN="${ALVO#*|}"
+falhou=0
+for alvo in "${CS_TARGETS[@]}"; do
+    url="${alvo%%|*}"
+    token="${alvo#*|}"
+    echo "Enviando som de \"$CS_AMIGO\" para $url ..."
+    if curl -sf --max-time 30 -X POST "$url/upload" \
+        -H "X-Secreto: $token" \
+        -F "amigo=$CS_AMIGO" \
+        -F "som=@$ARC"; then
+        echo "  ok ($url)"
+    else
+        echo "  falha em $url. Confere IP/porta/firewall e o secreto." >&2
+        falhou=1
+    fi
+done
 
-echo "Enviando som de \"$CS_AMIGO\" para $URL ..."
-if curl -sf --max-time 30 -X POST "$URL/upload" \
-    -H "X-Secreto: $TOKEN" \
-    -F "amigo=$CS_AMIGO" \
-    -F "som=@$ARC"; then
-    echo "Ok! Som atualizado."
+if [[ "$falhou" -eq 0 ]]; then
+    echo "Som atualizado em todos os PCs."
 else
-    echo "Falha no upload. Confere IP/porta/firewall e o secreto." >&2
     exit 1
 fi
