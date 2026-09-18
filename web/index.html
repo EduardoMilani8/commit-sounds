@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>commit-sounds</title>
+<style>
+  :root {
+    --fundo: #0f1218;
+    --cartao: #171c26;
+    --linha: #242b39;
+    --texto: #e6e9ef;
+    --muado: #8b94a7;
+    --verde: #34c77b;
+    --vermelho: #e5534b;
+    --azul: #4a8bf0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--fundo);
+    color: var(--texto);
+    line-height: 1.5;
+  }
+  header, main { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 28px; }
+  h1 { margin: 0 0 2px; font-size: 24px; }
+  .subtitulo, .vazio, .det { color: var(--muado); }
+  h2 { font-size: 18px; margin: 8px 0 12px; }
+  section { margin: 28px 0; }
+  .cartao {
+    background: var(--cartao);
+    border: 1px solid var(--linha);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 8px 0;
+  }
+  .linha { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  .linha-right { display: flex; align-items: center; gap: 8px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  button, input, [type=file] {
+    font: inherit;
+    background: var(--linha);
+    color: var(--texto);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--azul); }
+  button:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
+  input { width: 100%; }
+  input[type=file] { padding: 6px; }
+  .pill {
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    border: 1px solid var(--linha);
+    color: var(--muado);
+    white-space: nowrap;
+  }
+  .pill.verde { color: var(--verde); border-color: var(--verde); }
+  .pill.vermelho { color: var(--vermelho); border-color: var(--vermelho); }
+  .msg { color: var(--muado); display: block; font-size: 13px; min-height: 18px; }
+  .url { word-break: break-all; }
+  .destino-linha { display: flex; gap: 8px; margin: 6px 0; align-items: center; }
+  .destino-linha .du { width: 55%; }
+  .destino-linha .ds { width: 35%; }
+  .destino-linha button { flex: none; }
+  fieldset { border: none; padding: 0; margin: 0; }
+  label { display: block; margin: 10px 0 4px; color: var(--muado); font-size: 13px; }
+  .btn-del { color: var(--vermelho); }
+  .btn-listen { color: var(--verde); }
+  #bloq-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #bloq-row input { max-width: 320px; }
+  footer { color: var(--muado); text-align: center; padding: 32px 0 40px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>commit-sounds</h1>
+  <p class="subtitulo">Ouvinte deste PC — painel web</p>
+
+  <div class="cartao linha" style="flex-wrap:wrap">
+    <div>
+      <p class="det">Seu endereço (envie pros amigos)</p>
+      <strong id="seu-endereco">carregando...</strong>
+    </div>
+    <div class="linha-right">
+      <span id="secreto-atual" class="pill">—</span>
+      <button id="btn-copiar-secreto">copiar secreto</button>
+    </div>
+  </div>
+
+  <div class="cartao" id="bloq-row">
+    <input type="password" id="campo-secreto" placeholder="Secreto deste PC" autocomplete="off">
+    <button id="btn-desbloquear">desbloquear</button>
+    <span id="estado-bloqueio" class="pill">sem secreto: só visualização</span>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>Amigos que tocam neste PC</h2>
+    <p id="vazio-amigos" class="vazio">Nenhum som ainda. Peça pros amigos enviarem o som deles para o seu endereço.</p>
+    <div id="amigos" class="grade"></div>
+  </section>
+
+  <section>
+    <h2>PCs que eu aviso (hook)</h2>
+    <p id="aviso-hook" class="vazio">Este PC ainda não avisa ninguém. Configure abaixo ou rode <code>bash install-hook.sh</code>.</p>
+    <form id="form-hook">
+      <label for="apelido">Seu apelido (como os amigos vão ouvir seu som)</label>
+      <input id="apelido" data-sec placeholder="ex: vini" style="max-width:320px">
+      <label>Pessoas que devem tocar o som quando você der push</label>
+      <div id="destinos"></div>
+      <button type="button" id="btn-add-destino" data-sec-btn>+ adicionar PC</button>
+      <div style="margin-top:10px">
+        <button type="submit" data-sec-btn>salvar configuração</button>
+      </div>
+      <span id="msg-hook" class="msg"></span>
+    </form>
+    <div id="status"></div>
+  </section>
+
+  <section>
+    <h2>Enviar meu som</h2>
+    <p class="vazio">Registra seu som neste PC e envia para todos os PCs da lista acima (com os secretos de cada um).</p>
+    <div class="linha" style="justify-content:flex-start">
+      <input type="file" id="arquivo-som" data-sec accept=".mp3,.wav,.ogg,.opus,.flac,.m4a,.aac,audio/*">
+      <button id="btn-upload" data-sec-btn>enviar som</button>
+    </div>
+    <span id="msg-upload" class="msg"></span>
+  </section>
+</main>
+
+<footer>commit-sounds — sem servidor central</footer>
+
+<script>
+let SECRETO = sessionStorage.getItem("cs-secreto") || "";
+let MEU_APELIDO = "";
+
+const $ = (id) => document.getElementById(id);
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function desbloqueado() { return !!SECRETO; }
+
+function habilitaEdicao() {
+  const travado = !desbloqueado();
+  document.querySelectorAll("[data-sec]").forEach(el => el.disabled = travado);
+  document.querySelectorAll("[data-sec-btn]").forEach(el => el.disabled = travado);
+  $("estado-bloqueio").textContent = travado
+    ? "sem secreto: só visualização"
+    : "desbloqueado: edição e remoção liberadas";
+}
+
+async function api(path, opt = {}) {
+  opt.headers = Object.assign({}, opt.headers);
+  if (SECRETO) opt.headers["X-Secreto"] = SECRETO;
+  if (opt.body && !(opt.body instanceof FormData)) {
+    opt.headers["Content-Type"] = "application/json";
+    if (typeof opt.body !== "string") opt.body = JSON.stringify(opt.body);
+  }
+  const r = await fetch(path, opt);
+  let d = {};
+  try { d = await r.json(); } catch (e) {}
+  return { status: r.status, d };
+}
+
+function carregaInfo() {
+  api("/api/info").then(({ d }) => {
+    if (!d.ok) return;
+    $("seu-endereco").textContent = d.url_painel;
+    $("secreto-atual").textContent = d.secreto ? d.secreto : "—";
+    if (d.secreto) habilitaEdicao();
+  });
+}
+
+function carregaAmigos() {
+  api("/api/amigos").then(({ d }) => {
+    const box = $("amigos");
+    box.innerHTML = "";
+    const amigos = d.amigos || [];
+    $("vazio-amigos").style.display = amigos.length ? "none" : "block";
+    amigos.forEach(a => {
+      const card = document.createElement("div");
+      card.className = "cartao";
+      card.innerHTML =
+        "<strong>" + esc(a.apelido) + "</strong>" +
+        "<span class='det'>" + esc(a.arquivo + " · " + a.modificado + " · " + (a.tamanho / 1024).toFixed(1)) + " kB</span>" +
+        "<div class='linha' style='justify-content:flex-start'>" +
+          "<button data-sec-btn class='btn-listen' data-a='" + esc(a.apelido) + "'>ouvir aqui</button>" +
+          "<button data-sec-btn class='btn-del' data-a='" + esc(a.apelido) + "'>remover</button>" +
+        "</div>" +
+        "<span class='msg'></span>";
+      card.querySelector(".btn-listen").onclick = () => acao(a.apelido, "/api/testar", card);
+      card.querySelector(".btn-del").onclick = () => acao(a.apelido, "/api/remover", card, true);
+      box.appendChild(card);
+    });
+    habilitaEdicao();
+  });
+}
+
+async function acao(apelido, rota, card, remove = false) {
+  const msgEl = card.querySelector(".msg");
+  if (!desbloqueado()) { msgEl.textContent = "precisa do secreto deste PC"; return; }
+  const r = await api(rota, { method: "POST", body: { apelido } });
+  if (r.status === 200) {
+    msgEl.textContent = remove ? "removido" : "tocando";
+    if (remove) carregaAmigos();
+  } else {
+    msgEl.textContent = r.d.erro || ("HTTP " + r.status);
+  }
+}
+
+function linhaDestino(url, secreto) {
+  const row = document.createElement("div");
+  row.className = "destino-linha";
+  row.innerHTML =
+    "<input class='du' data-sec placeholder='http://192.168.0.10:8080' value='" + esc(url) + "'>" +
+    "<input class='ds' data-sec placeholder='secreto' value='" + esc(secreto) + "'>" +
+    "<button type='button' class='btn-del' data-sec-btn>remover</button>";
+  row.querySelector("button").onclick = () => { row.remove(); habilitaEdicao(); };
+  return row;
+}
+
+function carregaDestinos() {
+  return api("/api/destinos").then(({ d }) => {
+    if (!d.ok) return;
+    MEU_APELIDO = d.apelido || "";
+    $("apelido").value = MEU_APELIDO;
+    const box = $("destinos");
+    box.innerHTML = "";
+    (d.destinos || []).forEach(dd => box.appendChild(linhaDestino(dd.url, dd.secreto)));
+    $("aviso-hook").style.display = d.destinos && d.destinos.length ? "none" : "block";
+    habilitaEdicao();
+  });
+}
+
+function carregaStatus() {
+  api("/api/status").then(({ d }) => {
+    const box = $("status");
+    box.innerHTML = "";
+    if (!d.status || d.status.length === 0) {
+      box.innerHTML = "<p class='vazio'>nenhum PC configurado para verificar.</p>";
+      return;
+    }
+    d.status.forEach(s => {
+      const el = document.createElement("div");
+      el.className = "cartao linha";
+      el.innerHTML = "<span class='url'>" + esc(s.url) + "</span>" +
+        "<span class='pill " + (s.ok ? "verde" : "vermelho") + "'>" +
+        (s.ok ? "online" : "offline (" + esc(s.codigo) + ")") + "</span>";
+      box.appendChild(el);
+    });
+  });
+}
+
+function msgH(el, texto, bom) {
+  el.textContent = texto;
+  el.style.color = bom ? "var(--verde)" : "var(--vermelho)";
+}
+
+$("btn-desbloquear").onclick = async () => {
+  const valor = $("campo-secreto").value.trim();
+  if (!valor) return;
+  const r = await fetch("/api/info", { headers: { "X-Secreto": valor } });
+  const d = await r.json();
+  if (d.secreto) {
+    SECRETO = valor;
+    sessionStorage.setItem("cs-secreto", valor);
+    $("campo-secreto").value = "";
+    carregaInfo();
+    carregaDestinos();
+    carregaStatus();
+  } else {
+    msgH($("estado-bloqueio"), "secreto incorreto", false);
+  }
+};
+
+$("btn-copiar-secreto").onclick = () => {
+  const seg = $("secreto-atual").textContent;
+  if (seg && seg !== "—") navigator.clipboard.writeText(seg);
+};
+
+$("btn-add-destino").onclick = () => $("destinos").appendChild(linhaDestino("", ""));
+
+$("form-hook").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!desbloqueado()) { msgH($("msg-hook"), "digite o secreto deste PC primeiro", false); return; }
+  const destinos = [...$("destinos").children].map(row => ({
+    url: row.querySelector(".du").value.trim(),
+    secreto: row.querySelector(".ds").value.trim()
+  })).filter(d => d.url && d.secreto);
+  const r = await api("/api/config", { method: "POST", body: { apelido: $("apelido").value.trim(), destinos } });
+  msgH($("msg-hook"), r.status === 200 ? "configuração salva" : (r.d.erro || "HTTP " + r.status), r.status === 200);
+  carregaDestinos();
+  carregaStatus();
+};
+
+async function enviaPra(url, secreto, fd) {
+  try {
+    const r = await fetch(url + "/upload", { method: "POST", headers: { "X-Secreto": secreto }, body: fd });
+    let d = {};
+    try { d = await r.json(); } catch (e) {}
+    return r.ok ? "ok (" + url + ")" : "erro " + r.status + " (" + url + ")";
+  } catch (e) {
+    return "nao conectou (" + url + ")";
+  }
+}
+
+$("btn-upload").onclick = async () => {
+  const file = $("arquivo-som").files[0];
+  const alvo = $("msg-upload");
+  if (!file) { msgH(alvo, "escolha um arquivo de som primeiro", false); return; }
+  if (!desbloqueado()) { msgH(alvo, "digite o secreto deste PC primeiro", false); return; }
+  if (!MEU_APELIDO) { msgH(alvo, "defina seu apelido na seção do hook antes", false); return; }
+
+  const res = [];
+  const local = new FormData();
+  local.append("amigo", MEU_APELIDO);
+  local.append("som", file);
+  const rl = await fetch("/upload", { method: "POST", headers: { "X-Secreto": SECRETO }, body: local });
+  const dl = await rl.json();
+  res.push(rl.ok && dl.ok ? "ok local (" + dl.arquivo + ")" : "erro local");
+
+  for (const row of $("destinos").children) {
+    const url = row.querySelector(".du").value.trim();
+    const secreto = row.querySelector(".ds").value.trim();
+    if (!url || !secreto) continue;
+    const fd = new FormData();
+    fd.append("amigo", MEU_APELIDO);
+    fd.append("som", file);
+    res.push(await enviaPra(url, secreto, fd));
+  }
+  msgH(alvo, res.join("  |  "), true);
+  carregaAmigos();
+  carregaDestinos();
+};
+
+carregaInfo();
+carregaAmigos();
+carregaDestinos();
+carregaStatus();
+setInterval(() => { carregaAmigos(); carregaStatus(); }, 8000);
+</script>
+</body>
+</html>

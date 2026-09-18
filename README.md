@@ -9,6 +9,7 @@ servidor central, usando só Python, `curl` e git — que todo Linux já tem.
 ## Índice
 
 - [Como funciona](#como-funciona)
+- [Painel web](#painel-web)
 - [Pré-requisitos (nos dois PCs)](#pré-requisitos-nos-dois-pcs)
 - [Passo a passo: primeiro contato entre 2 amigos](#passo-a-passo-primeiro-contato-entre-2-amigos)
 - [Adicionando mais amigos](#adicionando-mais-amigos)
@@ -40,6 +41,32 @@ Quando alguém vira ouvinte, o `install-listener.sh` imprime **2 valores**
 2. **SECRETO** — uma senha da brincadeira, gerada na instalação
 
 Você usa os valores **dele** no seu hook, e ele usa os **seus** no dele.
+
+---
+
+## Painel web
+
+Depois de instalar o ouvinte, abra no navegador:
+
+```
+http://localhost:8080
+```
+
+(De qualquer PC da LAN: `http://SEU_IP:8080`, o mesmo endereço que você
+compartilha com os amigos.)
+
+Com o painel você faz tudo **sem abrir terminal** — e os scripts
+continuam funcionando normalmente, são equivalentes:
+
+- **Amigos que tocam neste PC**: lista quem já mandou som pra você, com
+  botões pra **ouvir aqui** e **remover**.
+- **PCs que eu aviso**: define seu apelido e a lista de PCs (URL +
+  secreto), e mostra o **status online/offline** de cada um.
+- **Enviar meu som**: envia seu som pra este PC e pra todos os PCs da
+  lista, com um clique.
+
+Pra **editar ou remover** qualquer coisa, o painel pede o **secreto deste
+PC** (o mesmo do Passo 1). Sem ele, o painel fica só em modo visualização.
 
 ---
 
@@ -79,6 +106,10 @@ Libere a porta no firewall (quem ouve precisa; no Ubuntu):
 ```bash
 sudo ufw allow 8080/tcp
 ```
+
+A partir daqui dá pra configurar todo o resto pelo [painel web](#painel-web)
+(`http://localhost:8080`), sem terminal. Os passos 2 e 3 abaixo mostram o
+jeito por linha de comando — escolha um dos dois.
 
 ### Passo 2 · Apontar seu hook pro PC do amigo (nos dois PCs)
 
