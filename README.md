@@ -80,6 +80,10 @@ Libere a porta no firewall (quem ouve precisa; no Ubuntu):
 sudo ufw allow 8080/tcp
 ```
 
+O instalador tenta baixar as dependências sozinho (via apt): `curl`,
+um player de áudio (`paplay`/`pw-play`/`aplay`) e `ffmpeg` (pro mp3).
+Se estiver numa distro sem `apt-get`, instale-os manualmente antes.
+
 A partir daqui, faça os passos 2 e 3 abaixo por linha de comando.
 
 ### Passo 2 · Apontar seu hook pro PC do amigo (nos dois PCs)
@@ -160,8 +164,8 @@ uma com seu som.
   `aplay`). É o formato mais seguro.
 - **`.mp3` só toca se o PC que OUVE tiver `ffmpeg`** (vem o `ffplay`).
   Muitos `pw-play`/`paplay` não decodificam mp3 por padrão e falham **em
-  silêncio** — a causa nº 1 de "não tocou nada". O `install-listener.sh`
-  já tenta instalar o `ffmpeg` automaticamente.
+  silêncio** — a causa nº 1 de "não tocou nada". O `install-listener.sh` já
+  instala o `ffmpeg` automaticamente.
 - Formatos aceitos: `mp3, wav, ogg, opus, flac, m4a, aac`.
 - O som é cortado em **5 segundos** automaticamente (mais curto toca
   inteiro).

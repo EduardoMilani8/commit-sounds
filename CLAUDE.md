@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI coding 
 | Listener (server) | `listener.py` | `~/.commit-sounds/listener.py` | HTTP server on port 8080; receives push alerts and plays the matching sound |
 | Global hook | `hook/pre-push` | `~/.git-hooks/pre-push` | Runs on `git push` (branch/tag); POSTs a `/play` alert to every configured target |
 | Hook installer | `install-hook.sh` | — | Installs the global hook + writes `hook-config.sh` interactively |
-| Listener installer | `install-listener.sh` | — | Installs listener, systemd user unit `commit-sound`, generates `config.json`; tries to install `ffmpeg` (mp3 playback) if missing |
+| Listener installer | `install-listener.sh` | — | Installs listener, systemd user unit `commit-sound`, generates `config.json`; installs `curl`, an audio player and `ffmpeg` (mp3) if missing |
 | Uploader | `upload-som.sh` | — | Uploads your sound to all configured target PCs |
 | Test tool | `testar-som.sh` | — | Tests network path (`/play`) or local audio (`--local`) |
 

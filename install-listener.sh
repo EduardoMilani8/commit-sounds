@@ -7,14 +7,32 @@ DIR="$HOME/.commit-sounds"
 mkdir -p "$DIR/sounds"
 install -m 755 "$SCRIPTS_DIR/listener.py" "$DIR/listener.py"
 
-if ! command -v ffplay >/dev/null 2>&1; then
-    echo "ffmpeg nao encontrado (necessario p/ tocar mp3); tentando instalar..."
+falta=()
+command -v curl >/dev/null 2>&1 || falta+=("curl")
+if ! command -v pw-play >/dev/null 2>&1 && ! command -v paplay >/dev/null 2>&1 && ! command -v aplay >/dev/null 2>&1; then
+    falta+=("player")
+fi
+command -v ffplay >/dev/null 2>&1 || falta+=("ffmpeg")
+
+if [[ ${#falta[@]} -gt 0 ]]; then
+    echo "faltam dependencias: ${falta[*]}"
     if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update -qq && sudo apt-get install -y ffmpeg || true
+        echo "instalando via apt (pode pedir a senha do sudo)..."
+        sudo apt-get update -qq || true
+        sudo apt-get install -y curl pipewire-pulse pulseaudio-utils alsa-utils ffmpeg || true
+    else
+        echo "  sem apt-get; instale manualmente: curl, um player de audio (pipewire-pulse/pulseaudio-utils/alsa-utils) e ffmpeg"
     fi
-    if ! command -v ffplay >/dev/null 2>&1; then
-        echo "  aviso: nao consegui instalar ffmpeg; mp3 pode nao tocar (instale com o gerenciador de pacotes do seu sistema)"
-    fi
+fi
+
+if ! command -v curl >/dev/null 2>&1; then
+    echo "  aviso: curl nao instalado; o hook nao conseguira avisar os amigos"
+fi
+if ! command -v pw-play >/dev/null 2>&1 && ! command -v paplay >/dev/null 2>&1 && ! command -v aplay >/dev/null 2>&1; then
+    echo "  aviso: nenhum player de audio; os sons nao vao tocar"
+fi
+if ! command -v ffplay >/dev/null 2>&1; then
+    echo "  aviso: ffmpeg nao instalado; mp3 nao vai tocar"
 fi
 
 if [[ ! -f "$DIR/config.json" ]]; then

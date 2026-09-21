@@ -12,7 +12,7 @@ This repo is **source only**. Real installs live in the user's home dir:
 |-----------|--------------|------|
 | `listener.py` | `~/.commit-sounds/listener.py` | HTTP server: receives alerts, plays sounds |
 | `hook/pre-push` | `~/.git-hooks/pre-push` | Git hook: notifies all `CS_TARGETS` on branch/tag push |
-| `install-listener.sh` | — | Installs listener + systemd user service `commit-sound`; tries to install ffmpeg (mp3) if missing |
+| `install-listener.sh` | — | Installs listener + systemd user service `commit-sound`; installs curl, an audio player and ffmpeg (mp3) if missing |
 | `install-hook.sh` | — | Installs global hook + writes `hook-config.sh` |
 | `upload-som.sh` | — | Uploads a sound file to every configured target |
 | `testar-som.sh` | — | Tests `/play` path or local audio (`--local`) |
