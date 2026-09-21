@@ -7,6 +7,16 @@ DIR="$HOME/.commit-sounds"
 mkdir -p "$DIR/sounds"
 install -m 755 "$SCRIPTS_DIR/listener.py" "$DIR/listener.py"
 
+if ! command -v ffplay >/dev/null 2>&1; then
+    echo "ffmpeg nao encontrado (necessario p/ tocar mp3); tentando instalar..."
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update -qq && sudo apt-get install -y ffmpeg || true
+    fi
+    if ! command -v ffplay >/dev/null 2>&1; then
+        echo "  aviso: nao consegui instalar ffmpeg; mp3 pode nao tocar (instale com o gerenciador de pacotes do seu sistema)"
+    fi
+fi
+
 if [[ ! -f "$DIR/config.json" ]]; then
     python3 "$DIR/listener.py" --init
 fi

@@ -160,12 +160,13 @@ uma com seu som.
   `aplay`). É o formato mais seguro.
 - **`.mp3` só toca se o PC que OUVE tiver `ffmpeg`** (vem o `ffplay`).
   Muitos `pw-play`/`paplay` não decodificam mp3 por padrão e falham **em
-  silêncio** — a causa nº 1 de "não tocou nada".
+  silêncio** — a causa nº 1 de "não tocou nada". O `install-listener.sh`
+  já tenta instalar o `ffmpeg` automaticamente.
 - Formatos aceitos: `mp3, wav, ogg, opus, flac, m4a, aac`.
 - O som é cortado em **5 segundos** automaticamente (mais curto toca
   inteiro).
 
-Se o amigo só tiver mp3 e o PC dele não reproduzir:
+Se o mp3 do amigo não tocar mesmo assim:
 
 ```bash
 sudo apt install -y ffmpeg
