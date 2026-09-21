@@ -17,14 +17,13 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI coding 
 | Listener (server) | `listener.py` | `~/.commit-sounds/listener.py` | HTTP server on port 8080; receives push alerts and plays the matching sound |
 | Global hook | `hook/pre-push` | `~/.git-hooks/pre-push` | Runs on `git push` (branch/tag); POSTs a `/play` alert to every configured target |
 | Hook installer | `install-hook.sh` | — | Installs the global hook + writes `hook-config.sh` interactively |
-| Listener installer | `install-listener.sh` | — | Installs listener, web panel, systemd user unit `commit-sound`, generates `config.json` |
+| Listener installer | `install-listener.sh` | — | Installs listener, systemd user unit `commit-sound`, generates `config.json` |
 | Uploader | `upload-som.sh` | — | Uploads your sound to all configured target PCs |
 | Test tool | `testar-som.sh` | — | Tests network path (`/play`) or local audio (`--local`) |
-| Web panel | `web/index.html` | `~/.commit-sounds/web/index.html` | Single-file browser UI (vanilla JS) calling the `/api/*` routes |
 
 Install flow:
 
-- `install-listener.sh` → creates `~/.commit-sounds/{listener.py, config.json, sounds/, web/index.html}` and a systemd **user** service `commit-sound.service` (enabled, auto-start at login).
+- `install-listener.sh` → creates `~/.commit-sounds/{listener.py, config.json, sounds/}` and a systemd **user** service `commit-sound.service` (enabled, auto-start at login).
 - `install-hook.sh` → calls `git config --global core.hooksPath ~/.git-hooks` and writes `~/.git-hooks/hook-config.sh`.
 
 ## Runtime state (per-PC, on disk)
@@ -40,17 +39,8 @@ Auth: a shared secret. Sent either as header `X-Secreto` or in the JSON body as 
 
 | Route | Method | Body | Auth | Behavior |
 |-------|--------|------|------|----------|
-| `/ping` | GET | — | no | `200 {"ok": true}` (used by health probe) |
-| `/` | GET | — | no | serves the web panel HTML |
 | `/play` | POST | `{"secreto","amigo"}` | yes | plays `sounds/<amigo>.*` → `200` with player, `404` no sound, `500` no player |
 | `/upload` | POST | `multipart/form-data`: `amigo`, `som` | yes (header) | stores sound file → `200`; validates extension |
-| `/api/info` | GET | — | no | url, porta, secret (only if authed), players, sounds dir |
-| `/api/amigos` | GET | — | no | list of stored sounds (nickname, file, size, mtime) |
-| `/api/destinos` | GET | — | no | parsed `hook-config.sh`; full secrets only when authed, else masked |
-| `/api/status` | GET | — | no | online/offline probe of each target via `/ping` |
-| `/api/config` | POST | `{"apelido","destinos":[{"url","secreto"}]}` | yes | writes `hook-config.sh` |
-| `/api/remover` | POST | `{"apelido"}` | yes | deletes that friend's sound(s) |
-| `/api/testar` | POST | `{"apelido"}` | yes | plays sound locally (like `/play` but for testing) |
 
 Validation rules:
 
@@ -84,7 +74,6 @@ Each is wrapped as `timeout 5 <player> ...`. Note: mp3 needs ffmpeg on the *list
 - The pre-push hook deliberately uses `exit 0` always — a failed alert must **not** block the push. Preserve that.
 - The listener is plain Python stdlib (`http.server`). No third-party deps. Keep it that way.
 - `testar-som.sh --local` uses `timeout 5`; keep in sync with `DURACAO_MAX`.
-- The web panel is a single self-contained `index.html` (no build step, vanilla JS, `esc()` for HTML escaping of dynamic content).
 - **Commit style** (repo history): short Portuguese messages, often Conventional-commit prefixes (`feat:`, `fix:`, `docs:`). Follow suit.
 - This machine auto-pushes on commit via a user-global `post-commit` hook (`~/.git-hooks/post-commit`, logs to `push.log`). A commit here is pushed immediately; do not be surprised.
 - Tests: none exist. Sanity-check changes by running `bash testar-som.sh --local` (audio) or a local curl against the listener.

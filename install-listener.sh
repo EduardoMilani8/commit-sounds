@@ -6,8 +6,6 @@ DIR="$HOME/.commit-sounds"
 
 mkdir -p "$DIR/sounds"
 install -m 755 "$SCRIPTS_DIR/listener.py" "$DIR/listener.py"
-mkdir -p "$DIR/web"
-install -m 644 "$SCRIPTS_DIR/web/index.html" "$DIR/web/index.html"
 
 if [[ ! -f "$DIR/config.json" ]]; then
     python3 "$DIR/listener.py" --init
@@ -36,8 +34,7 @@ WantedBy=default.target
 EOF
 
 if command -v systemctl >/dev/null 2>&1 && systemctl --user daemon-reload >/dev/null 2>&1; then
-    systemctl --user enable commit-sound.service
-    systemctl --user restart commit-sound.service
+    systemctl --user enable --now commit-sound.service
     RODANDO="via systemd (ativa no login)"
 else
     RODANDO="sem systemd acessivel; suba manual: nohup python3 $DIR/listener.py &"
@@ -51,7 +48,6 @@ echo "commit-sounds listener OK"
 echo "  rodando:  $RODANDO"
 echo "  config:   $DIR/config.json"
 echo "  sons:     $DIR/sounds/"
-echo "  painel:   abra http://localhost:$PORTA no navegador"
 echo "=============================================="
 echo "Compartilhe com seus amigos:"
 if [[ -n "$IP" ]]; then
@@ -61,7 +57,6 @@ else
 fi
 echo "  2) SECRETO: $SECRETO"
 echo ""
-echo "No PC do amigo (pode tudo pelo navegador em http://SEU_IP:$PORTA):"
-echo "  ou, por terminal:"
+echo "No PC do amigo:"
 echo "  bash $SCRIPTS_DIR/install-hook.sh"
 echo "  bash $SCRIPTS_DIR/upload-som.sh /caminho/som.mp3"
