@@ -4,85 +4,88 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-**commit-sounds** is a LAN toy for friends: when you run `git push`, the PC of a friend plays your custom sound. When they push, your PC plays theirs.
+**commit-sounds** is a LAN toy for friends: when you run `git push`, your friends' PCs play your custom sound. When they push, your PC plays theirs.
 
-- **No central server.** Each PC runs a small Python HTTP listener (default port 8080) and also acts as a "notifier" via a global git hook.
-- The repo holds only the **source**. Real installs are copies under `~/.commit-sounds/` (listener) and `~/.git-hooks/` (hook). Editing a repo file changes nothing on this machine until it is reinstalled (see Development).
+- **No central server.** Friends join a **room** ("sala") by sharing one code (e.g. `sapo-azul-7k2mpq`). Peers find each other by UDP broadcast; no IPs or per-PC secrets are exchanged.
+- The repo holds only the **source**. Real installs are copies under `~/.commit-sounds/` (program + state) and the global hooks dir (hook). Editing a repo file changes nothing on this machine until it is reinstalled (see Development).
 - The user-facing manual is `README.md` (written in **pt-BR**). Code, logs and messages are also Portuguese.
+- Linux only. The previous design (`listener.py` + per-PC secrets + `upload-som.sh`) was discontinued; no backward compatibility.
 
-## Architecture
+## Files
 
-| Role | File (in repo) | Installed at (runtime) | Purpose |
-|------|----------------|------------------------|---------|
-| Listener (server) | `listener.py` | `~/.commit-sounds/listener.py` | HTTP server; receives push alerts and plays the matching sound |
-| Global hook | `hook/pre-push` | `~/.git-hooks/pre-push` | Runs on `git push` (branch/tag); POSTs a `/play` alert to every configured target |
-| Hook installer | `install-hook.sh` | — | Copies the hook, sets `git config --global core.hooksPath ~/.git-hooks`, writes `hook-config.sh` **interactively** |
-| Listener installer | `install-listener.sh` | — | Copies listener, runs `listener.py --init` if no config, writes + enables systemd **user** unit `commit-sound`; apt-installs `curl`, players and `ffmpeg` if missing |
-| Uploader | `upload-som.sh <file>` | — | POSTs your sound to `/upload` on every target in `hook-config.sh` |
-| Test tool | `testar-som.sh` | — | Tests the `/play` network path, or local audio with `--local` |
+| File (in repo) | Installed at | Purpose |
+|----------------|--------------|---------|
+| `commit_sounds.py` | `~/.commit-sounds/commit_sounds.py`, symlinked as `~/.local/bin/commit-sounds` | Everything: daemon (`servir`), hook sender (`avisar`), and user CLI |
+| `hook/pre-push` | `<core.hooksPath>/pre-push` (default `~/.git-hooks`) | On push of `refs/heads/*`/`refs/tags/*` (by **remote** ref, non-deletion) runs `commit_sounds.py avisar` detached via `setsid nohup ... &`, then `exit 0` |
+| `instalar.sh` | — | Installs deps via apt, removes the old `commit-sound` unit/`listener.py`, copies program, installs hook (backs up a foreign `pre-push`), runs `configurar` interactively, writes + enables systemd user unit `commit-sounds`, opens ufw ports if ufw is enabled, prints `status` |
 
-## Runtime state (per-PC, on disk)
+## CLI (`commit-sounds <cmd>`)
 
-- `~/.commit-sounds/config.json` — `{host, porta, secreto}`. Missing keys are filled with defaults (`0.0.0.0`, `8080`, random 32-hex secret) and the file is rewritten on **every** listener start. This is the source of truth for port/secret.
-- `~/.commit-sounds/sounds/<apelido>.<ext>` — one sound per friend, keyed by nickname.
-- `~/.git-hooks/hook-config.sh` — `CS_AMIGO="..."` + `CS_TARGETS=( "URL|secreto" ... )` (see `hook/hook-config.example.sh`). `chmod 600`.
-- Logs: `~/.git-hooks/pre-push.log` (hook), `~/.git-hooks/push.log` (auto-push hook), listener via `journalctl --user -u commit-sound`.
+`status` (default), `testar [--aqui]`, `som <arquivo>`, `sala`, `adicionar <ip[:porta]>`, `remover <apelido>`, `mudo [min|off]`, `configurar [--apelido --sala --som]` (interactive only when stdin is a TTY and no flags), plus internal `servir` and `avisar`.
 
-## Listener API
+## Runtime state (`~/.commit-sounds/`, overridable with env `COMMIT_SOUNDS_DIR`)
 
-Auth: shared secret, compared with `hmac.compare_digest` in `Handler._authed`. Wrong/missing → `403`.
+- `config.json` — `{id, apelido, sala, som, porta, porta_sala, mudo_ate?}`. `id` (16 hex) is the stable peer identity; `apelido` is only a label. Missing `id/porta/porta_sala` are filled on load.
+- `meu-som.<ext>` — copy of the user's sound (`config.som` holds the filename).
+- `amigos.json` — `{id: {apelido, ip, porta, visto, manual?}}`, written under `flock(.amigos.lock)`. Auto-discovered peers unseen for 7 days are pruned at daemon start; `manual` ones are kept.
+- `cache/<peer_id>-<hash16>.<ext>` — friends' sounds; older versions of the same peer are deleted on download.
+- `avisos.log` — results of each push alert. Daemon logs go to `journalctl --user -u commit-sounds`.
 
-| Route | Method | Body | Auth | Behavior |
-|-------|--------|------|------|----------|
-| `/play` | POST | JSON `{"secreto","amigo"}` | header `X-Secreto` or JSON `secreto` | `200` (with `player`), `400` bad nickname, `404` no sound, `500` no player worked |
-| `/upload` | POST | `multipart/form-data`: `amigo`, `som` | header `X-Secreto` only | stores `sounds/<amigo><ext>`; `415` if not multipart, `400` bad nickname/extension |
+## Protocol
 
-- Nickname regex `^[A-Za-z0-9_.-]{1,32}$` (`valid_amigo`). The hook does not validate `CS_AMIGO`; it builds the JSON by string interpolation.
-- Extensions (`VALID_EXTS`): `mp3, wav, ogg, opus, flac, m4a, aac`. Multipart parsing is hand-rolled (`parse_multipart`), since stdlib `cgi` is gone.
-- Uploading a new extension does **not** delete the old file. `/play` picks `sorted(glob("<amigo>.*"))[0]`, so e.g. an old `Fabio.m4a` wins over a new `Fabio.wav`.
+- **Auth**: key = `pbkdf2_hmac(sha256, normalized sala, "commit-sounds", 200k)` (cached). Every message is an envelope `{"d": <json string>, "h": hmac_sha256(key, d)}`; `d` always carries `id, apelido, porta, ts, nonce`. `abrir` rejects bad HMAC (403 `sala diferente`), `|now-ts| > 600s` (403 `relogio fora de sincronia`), and reused nonces (409 `mensagem repetida`). Any authenticated contact registers the sender (IP from the socket) in `amigos.json`.
+- **Discovery (UDP `porta_sala`, default 8080)**: every 30 s a signed `tipo=oi` is sent to `255.255.255.255` and unicast to every known peer. A receiver that sees a new/stale peer replies once with `resposta=true`.
+- **HTTP (TCP `porta`, default 8080)**:
+  - `GET /quem` (header `X-Sala: <envelope>`) → signed envelope about this peer. Used by `status` and `adicionar`.
+  - `GET /som` (header `X-Sala`) → raw bytes of `meu-som.*`.
+  - `POST /aviso` (body = envelope with `som_hash`, `som_ext`) → if muted `200 {mudo}`; if the sound isn't cached, fetches `/som` from the sender and verifies the hash (`502` on failure); plays it: `200 {player}` or `500`.
+- The sender builds **one** aviso envelope and posts it to every peer in parallel, so a peer reachable at two stale addresses plays once (the second gets 409).
 
 ## Audio playback (`play_sound`)
 
-Players are tried in order: `pw-play` → `paplay` → `aplay` (WAV only) → `ffplay -nodisp -autoexit`. Each runs as `timeout DURACAO_MAX <player> <file>` in its own session. The listener waits **1 s**: a player still running counts as success; one that exits non-zero within 1 s falls through to the next. So a `200` means "a player started", not "sound was heard". mp3 generally needs ffmpeg on the **listening** PC.
+Players are tried in order: `pw-play` → `paplay` → `aplay` (WAV only) → `ffplay -nodisp -autoexit`. Each runs as `timeout DURACAO_MAX <player> <file>` in its own session. The daemon waits **1 s**: a player still running counts as success; one that exits non-zero within 1 s falls through to the next. So a `200` means "a player started", not "sound was heard". mp3 generally needs ffmpeg on the **listening** PC.
 
-`DURACAO_MAX = 5` caps playback. It must stay in sync with `timeout 5` in `testar-som.sh --local` and the "5 segundos" mentions in `README.md`.
+`DURACAO_MAX = 5` caps playback and must stay in sync with the "5 segundos" in `README.md`. `TAMANHO_MAX` (5 MB) likewise.
 
-## Data flow on push
+## Invariants
 
-1. `git push` → global `pre-push` hook (global `core.hooksPath` means repo-local `.git/hooks` are ignored everywhere).
-2. Hook sources `hook-config.sh`; if `CS_AMIGO`/`CS_TARGETS` are missing, it logs and exits.
-3. It only fires if some pushed ref is `refs/heads/*` or `refs/tags/*` with a non-zero oid (not a deletion).
-4. For each target: `curl --max-time 2 POST <url>/play`, logging the HTTP status to `pre-push.log`. This runs **before** the remote accepts the push, so a rejected push still plays.
-5. The hook always `exit 0`. A failed alert must never block a push. Preserve this.
+- The hook must never block or slow a push: it only backgrounds `avisar` and always `exit 0`. It runs **before** the remote accepts the push, so a rejected push still plays.
+- A PC never plays its own push (`/aviso` from its own `id` is ignored; `avisar` skips its own `id`).
+- Changing `sala` via `configurar` clears `amigos.json`.
 
 ## Development
 
-No build, lint or test suite exists. The only dependencies are bash, curl, python3 stdlib, and a player.
+No build, lint or test suite. Dependencies: bash, python3 stdlib, a player (+ ffmpeg for mp3), `setsid` (util-linux).
+
+Test two peers on one machine without touching the real install (both share `porta_sala`, which works because the UDP socket uses `SO_REUSEADDR`; put a fake `pw-play` first in `PATH` to avoid real audio):
 
 ```bash
-# run the listener from the repo (uses ~/.commit-sounds/ paths; no flag to change them)
-systemctl --user stop commit-sound          # free the port first
-python3 listener.py                          # prints host:port and secret
-python3 listener.py --init                   # create/fill config.json and exit
-
-# exercise the API locally
-S=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.commit-sounds/config.json")))["secreto"])')
-curl -s -X POST localhost:8080/play -H 'Content-Type: application/json' -d "{\"secreto\":\"$S\",\"amigo\":\"Teste\"}"
-curl -s -X POST localhost:8080/upload -H "X-Secreto: $S" -F amigo=Teste -F som=@som.wav
-
-bash testar-som.sh --local                   # local audio only
-bash testar-som.sh URL SECRETO APELIDO       # one target by hand (default: all targets in hook-config.sh)
-
-# deploy edits to this machine
-install -m 755 listener.py ~/.commit-sounds/listener.py && systemctl --user restart commit-sound
-install -m 755 hook/pre-push ~/.git-hooks/pre-push   # NOT install-hook.sh: that re-prompts and overwrites hook-config.sh
+mkdir -p /tmp/cs/A /tmp/cs/B
+echo '{"porta":18081,"porta_sala":18080}' > /tmp/cs/A/config.json
+echo '{"porta":18082,"porta_sala":18080}' > /tmp/cs/B/config.json
+COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py configurar --apelido Ana --som a.wav
+COMMIT_SOUNDS_DIR=/tmp/cs/B python3 commit_sounds.py configurar --apelido Beto --som b.wav \
+  --sala "$(COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py sala)"
+COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py servir &
+COMMIT_SOUNDS_DIR=/tmp/cs/B python3 commit_sounds.py servir &
+COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py status
+COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py testar
 ```
+
+Deploy edits to this machine:
+
+```bash
+install -m 755 commit_sounds.py ~/.commit-sounds/commit_sounds.py && systemctl --user restart commit-sounds
+install -m 755 hook/pre-push "$(git config --global core.hooksPath)/pre-push"
+```
+
+(`bash instalar.sh` also works and is idempotent, but re-asks the three questions; Enter keeps current values.)
 
 ## Conventions & gotchas
 
 - **Do not add code comments** unless the user explicitly asks.
-- Keep the **pt-BR** voice (runtime messages/logs are unaccented ASCII, e.g. `nao`, `invalido`; README is accented) for user-facing messages, logs and README.
-- Listener is **stdlib only** (`http.server`, `ThreadingHTTPServer`). No third-party deps.
-- Shell scripts target bash on Debian/Ubuntu (`apt-get` in the installer). Hook and scripts avoid `set -e` where a failure must not abort.
+- Keep the **pt-BR** voice (runtime messages/logs are unaccented ASCII, e.g. `nao`, `invalido`; README is accented).
+- **stdlib only** (`http.server`, `urllib` with proxies disabled, `socket`). No third-party deps.
+- Shell scripts target bash on Debian/Ubuntu (`apt-get` in the installer).
 - **Commit style**: short Portuguese messages, often with Conventional prefixes (`feat:`, `fix:`, `docs:`).
 - **Committing here pushes immediately.** A user-global `~/.git-hooks/post-commit` runs `git push` when the branch has an upstream (logs to `push.log`). That push fires `pre-push`, which **plays your sound on your friends' PCs**. Only commit when the user asks.
