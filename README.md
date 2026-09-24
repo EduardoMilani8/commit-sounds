@@ -84,10 +84,10 @@ vem com a dica do que fazer.
 | Sintoma | O que fazer |
 |---------|-------------|
 | "Nenhum amigo na sala ainda" | Confiram se o código da sala é o mesmo (`commit-sounds sala`). Alguns roteadores bloqueiam a descoberta: use `commit-sounds adicionar IP_DO_AMIGO` (o IP dele aparece no `ip -4 addr` do PC dele) |
-| `nao conectou` | PC do amigo desligado, em outra rede, ou firewall fechado lá (`sudo ufw allow 8080`) |
+| `nao conectou` | PC do amigo desligado, em outra rede, ou firewall fechado lá (`sudo ufw allow 8008`) |
 | `codigo da sala diferente` | Um dos dois digitou outro código → `commit-sounds configurar` |
 | `relogio fora de sincronia` | Data/hora de um dos PCs está errada (mais de 10 min de diferença) |
-| `nao conseguiu baixar seu som` | O problema é no **seu** PC: serviço parado ou porta 8080 fechada aqui |
+| `nao conseguiu baixar seu som` | O problema é no **seu** PC: serviço parado ou porta 8008 fechada aqui |
 | `o PC dele nao conseguiu tocar` | Falta `ffmpeg` no PC dele, ou mande um `.wav` |
 | `tocou`, mas ninguém ouviu | Volume/saída de áudio do amigo. Ele pode rodar `commit-sounds testar --aqui` |
 | `Servico: PARADO` | `systemctl --user restart commit-sounds` e veja `journalctl --user -u commit-sounds -n 30` |
@@ -108,7 +108,7 @@ vem com a dica do que fazer.
 | `~/.commit-sounds/cache/` | sons dos amigos |
 | `~/.git-hooks/pre-push` | hook global que avisa a cada push |
 
-Porta padrão: **8080** (TCP para avisos, UDP para a descoberta). Para mudar,
+Porta padrão: **8008** (TCP para avisos, UDP para a descoberta). Para mudar,
 edite `porta`/`porta_sala` no `config.json` e reinicie o serviço — mas a
 sala inteira precisa usar a mesma `porta_sala`.
 

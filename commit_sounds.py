@@ -78,7 +78,7 @@ def gravar_json(path, dado):
 
 def carregar_config():
     cfg = ler_json(CONFIG_PATH, {})
-    padrao = {"id": secrets.token_hex(8), "porta": 8080, "porta_sala": 8080}
+    padrao = {"id": secrets.token_hex(8), "porta": 8008, "porta_sala": 8008}
     faltou = [k for k in padrao if k not in cfg]
     for k in faltou:
         cfg[k] = padrao[k]
@@ -752,9 +752,9 @@ def cmd_adicionar(args):
         print("Ainda nao configurado. Rode: commit-sounds configurar")
         return 1
     host, _, porta = args.endereco.replace("http://", "").rstrip("/").partition(":")
-    porta = int(porta) if porta.isdigit() else 8080
+    porta = int(porta) if porta.isdigit() else 8008
     if not HOST_RE.fullmatch(host) or not valid_porta(porta):
-        print("endereco invalido: %s (ex: 192.168.0.15 ou 192.168.0.15:8080)" % args.endereco)
+        print("endereco invalido: %s (ex: 192.168.0.15 ou 192.168.0.15:8008)" % args.endereco)
         return 1
     status, _, resp = http("http://%s:%s/quem" % (host, porta), cabecalhos=cabecalho_sala(cfg, "quem"))
     if status != 200:

@@ -34,8 +34,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Protocol
 
 - **Auth**: key = `pbkdf2_hmac(sha256, normalized sala, "commit-sounds", 200k)` (cached). Every message is an envelope `{"d": <json string>, "h": hmac_sha256(key, d)}`; `d` always carries `id, apelido, porta, ts, nonce`. `abrir` rejects bad HMAC (403 `sala diferente`), `|now-ts| > 600s` (403 `relogio fora de sincronia`), and reused nonces (409 `mensagem repetida`). Any authenticated contact registers the sender (IP from the socket) in `amigos.json`.
-- **Discovery (UDP `porta_sala`, default 8080)**: every 30 s a signed `tipo=oi` is sent to `255.255.255.255` and unicast to every known peer. A receiver that sees a new/stale peer replies once with `resposta=true`.
-- **HTTP (TCP `porta`, default 8080)**:
+- **Discovery (UDP `porta_sala`, default 8008)**: every 30 s a signed `tipo=oi` is sent to `255.255.255.255` and unicast to every known peer. A receiver that sees a new/stale peer replies once with `resposta=true`.
+- **HTTP (TCP `porta`, default 8008)**:
   - `GET /quem` (header `X-Sala: <envelope>`) → signed envelope about this peer. Used by `status` and `adicionar`.
   - `GET /som` (header `X-Sala`) → raw bytes of `meu-som.*`.
   - `POST /aviso` (body = envelope with `som_hash`, `som_ext`) → if muted `200 {mudo}`; if the sound isn't cached, fetches `/som` from the sender and verifies the hash (`502` on failure); plays it: `200 {player}` or `500`.
@@ -61,8 +61,8 @@ Test two peers on one machine without touching the real install (both share `por
 
 ```bash
 mkdir -p /tmp/cs/A /tmp/cs/B
-echo '{"porta":18081,"porta_sala":18080}' > /tmp/cs/A/config.json
-echo '{"porta":18082,"porta_sala":18080}' > /tmp/cs/B/config.json
+echo '{"porta":18081,"porta_sala":18008}' > /tmp/cs/A/config.json
+echo '{"porta":18082,"porta_sala":18008}' > /tmp/cs/B/config.json
 COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py configurar --apelido Ana --som a.wav
 COMMIT_SOUNDS_DIR=/tmp/cs/B python3 commit_sounds.py configurar --apelido Beto --som b.wav \
   --sala "$(COMMIT_SOUNDS_DIR=/tmp/cs/A python3 commit_sounds.py sala)"
