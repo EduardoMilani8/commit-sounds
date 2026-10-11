@@ -6,10 +6,10 @@ DIR="$HOME/.commit-sounds"
 BIN="$HOME/.local/bin"
 UNIDADES="$HOME/.config/systemd/user"
 
-echo "== commit-sounds: instalacao =="
+echo "== commit-sounds: install =="
 
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "precisa do python3 instalado" >&2
+    echo "python3 is required" >&2
     exit 1
 fi
 
@@ -21,16 +21,16 @@ command -v ffplay >/dev/null 2>&1 || pacotes+=(ffmpeg)
 command -v setsid >/dev/null 2>&1 || pacotes+=(util-linux)
 if [[ ${#pacotes[@]} -gt 0 ]]; then
     if command -v apt-get >/dev/null 2>&1; then
-        echo "instalando dependencias: ${pacotes[*]} (pode pedir a senha do sudo)"
+        echo "installing dependencies: ${pacotes[*]} (may ask for your sudo password)"
         sudo apt-get update -qq || true
         sudo apt-get install -y "${pacotes[@]}" || true
     else
-        echo "aviso: instale manualmente: ${pacotes[*]}"
+        echo "warning: install manually: ${pacotes[*]}"
     fi
 fi
 
 if [[ -f "$UNIDADES/commit-sound.service" ]]; then
-    echo "removendo a versao antiga..."
+    echo "removing the old version..."
     systemctl --user disable --now commit-sound.service >/dev/null 2>&1 || true
     rm -f "$UNIDADES/commit-sound.service"
 fi
@@ -52,12 +52,12 @@ fi
 mkdir -p "$HOOKS"
 if [[ -f "$HOOKS/pre-push" ]] && ! grep -qE 'commit_sounds\.py|CS_TARGETS' "$HOOKS/pre-push"; then
     mv "$HOOKS/pre-push" "$HOOKS/pre-push.antes-commit-sounds"
-    echo "aviso: ja existia um pre-push seu; guardei em $HOOKS/pre-push.antes-commit-sounds"
+    echo "warning: you already had a pre-push hook; saved as $HOOKS/pre-push.antes-commit-sounds"
 fi
 install -m 755 "$ORIGEM/hook/pre-push" "$HOOKS/pre-push"
 
 echo ""
-python3 "$DIR/commit_sounds.py" configurar
+python3 "$DIR/commit_sounds.py" setup
 
 mkdir -p "$UNIDADES"
 cat > "$UNIDADES/commit-sounds.service" <<UNIT
@@ -66,7 +66,7 @@ Description=commit-sounds
 After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/env python3 $DIR/commit_sounds.py servir
+ExecStart=/usr/bin/env python3 $DIR/commit_sounds.py serve
 Restart=always
 RestartSec=3
 
@@ -78,25 +78,25 @@ if command -v systemctl >/dev/null 2>&1 && systemctl --user daemon-reload >/dev/
     systemctl --user enable commit-sounds.service >/dev/null 2>&1
     systemctl --user restart commit-sounds.service
 else
-    echo "aviso: sem systemd de usuario; suba na mao: nohup commit-sounds servir &"
+    echo "warning: no user systemd; start it by hand: nohup commit-sounds serve &"
 fi
 
 PORTAS="$(python3 -c 'import json,sys;c=json.load(open(sys.argv[1]));print(c["porta"],c["porta_sala"])' "$DIR/config.json")"
 read -r PORTA PORTA_SALA <<<"$PORTAS"
 if command -v ufw >/dev/null 2>&1 && grep -qs '^ENABLED=yes' /etc/ufw/ufw.conf; then
-    echo "liberando as portas $PORTA/tcp e $PORTA_SALA/udp no firewall (ufw)..."
-    sudo ufw allow "$PORTA/tcp" >/dev/null || echo "aviso: nao consegui liberar $PORTA/tcp"
-    sudo ufw allow "$PORTA_SALA/udp" >/dev/null || echo "aviso: nao consegui liberar $PORTA_SALA/udp"
+    echo "opening ports $PORTA/tcp and $PORTA_SALA/udp in the firewall (ufw)..."
+    sudo ufw allow "$PORTA/tcp" >/dev/null || echo "warning: could not open $PORTA/tcp"
+    sudo ufw allow "$PORTA_SALA/udp" >/dev/null || echo "warning: could not open $PORTA_SALA/udp"
 fi
 
 echo ""
-echo "procurando amigos na rede..."
+echo "looking for friends on the network..."
 sleep 3
 echo ""
 python3 "$DIR/commit_sounds.py" status || true
 
 echo ""
 case ":$PATH:" in
-    *":$BIN:"*) echo "Pronto! Use 'commit-sounds' para ver os comandos." ;;
-    *) echo "Pronto! Abra um terminal novo para o comando 'commit-sounds' funcionar." ;;
+    *":$BIN:"*) echo "Done! Run 'commit-sounds' to see who is online." ;;
+    *) echo "Done! Open a new terminal so the 'commit-sounds' command works." ;;
 esac

@@ -1,103 +1,103 @@
 # 🔊 commit-sounds
 
-**Você dá `git push` → o PC dos seus amigos toca o seu som.**
-Eles dão push → o seu PC toca o deles.
+**You `git push` → your friends' PCs play your sound.**
+They push → your PC plays theirs.
 
 ![Linux](https://img.shields.io/badge/Linux-only-informational)
 ![Python](https://img.shields.io/badge/Python-stdlib%20only-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Sem servidor, sem conta, sem IP pra trocar. Funciona na mesma rede (Wi-Fi/LAN).
+<p align="center">
+  <img src="docs/demo.gif" alt="commit-sounds demo: one push plays a sound on a friend's PC" width="720">
+</p>
 
-```
-  você: git push ──▶ 🔊 PC da Ana toca seu som
-                 ──▶ 🔊 PC do Beto toca seu som
-```
+No server, no account, no IPs to exchange. Works on the same network (Wi-Fi/LAN).
 
-## Instalar (1 minuto)
+## Install (1 minute)
 
 ```bash
 git clone https://github.com/EduardoMilani8/commit-sounds ~/commit-sounds
 cd ~/commit-sounds
-bash instalar.sh
+bash install.sh
 ```
 
-O instalador faz 3 perguntas:
+The installer asks three things:
 
-| Pergunta | Resposta |
-|----------|----------|
-| Apelido | como os amigos te veem (`vini`) |
-| Código da sala | o código que um amigo mandou, ou **Enter** pra criar uma sala nova |
-| Seu som | ex: `~/Downloads/risada.mp3` |
+| Question | Answer |
+|----------|--------|
+| Nickname | how your friends see you (`vini`) |
+| Room code | the code a friend sent you, or **Enter** to create a new room |
+| Your sound | e.g. `~/Downloads/laugh.mp3` |
 
-Pronto. Dê um `git push` em qualquer repositório e ouça.
+Done. `git push` in any repository and listen.
 
-## Chamar um amigo
+## Invite a friend
 
-1. Rode `commit-sounds sala` e mande o código (ex: `sapo-azul-7k2mpq`).
-2. Ele instala e cola o código. Ele aparece pra todo mundo sozinho.
+1. Run `commit-sounds room` and send them the code (e.g. `frog-blue-7k2mpq`).
+2. They install and paste it. They show up for everyone automatically.
 
-## Comandos
+## Commands
 
-| Comando | Para quê |
-|---------|----------|
-| `commit-sounds` | mostra quem da sala está online |
-| `commit-sounds testar` | toca seu som nos amigos agora |
-| `commit-sounds testar --aqui` | toca seu som neste PC |
-| `commit-sounds som ~/novo.mp3` | troca seu som |
-| `commit-sounds mudo [min]` | silencia (padrão 60 min); `mudo off` volta |
-| `commit-sounds sala` | mostra o código da sala |
-| `commit-sounds adicionar <ip>` | adiciona amigo pelo IP se a descoberta falhar |
-| `commit-sounds remover <apelido>` | esquece um amigo |
-| `commit-sounds configurar` | refaz apelido, sala e som |
+| Command | What it does |
+|---------|--------------|
+| `commit-sounds` | shows who in the room is online |
+| `commit-sounds test` | plays your sound on your friends' PCs now |
+| `commit-sounds test --here` | plays your sound on this PC |
+| `commit-sounds sound ~/new.mp3` | changes your sound |
+| `commit-sounds mute [min]` | silences everything (default 60 min); `mute off` to undo |
+| `commit-sounds room` | shows the room code |
+| `commit-sounds add <ip>` | adds a friend by IP if discovery fails |
+| `commit-sounds remove <nickname>` | forgets a friend |
+| `commit-sounds setup` | redo nickname, room and sound |
 
-## Como funciona
+## How it works
 
-- Cada PC roda um serviço leve (systemd de usuário) que se anuncia na rede
-  por UDP a cada 30 s.
-- Um hook global de `pre-push` avisa os amigos **em segundo plano**: o push
-  nunca fica lento nem é bloqueado.
-- Se o amigo não tem seu som, ele baixa direto do seu PC na hora.
-- Tudo é assinado com uma chave derivada do código da sala: quem não tem o
-  código não toca nada.
+- Each PC runs a small background service (systemd user unit) that announces
+  itself on the network over UDP every 30 s.
+- A global `pre-push` hook notifies your friends **in the background**: your
+  push is never slowed down or blocked.
+- If a friend doesn't have your sound yet, they download it straight from
+  your PC on the spot.
+- Everything is signed with a key derived from the room code: without the
+  code, nobody can play anything.
 
-## Sobre o som
+## About the sound
 
-- `mp3, wav, ogg, opus, flac, m4a, aac`, até 5 MB.
-- Toca no máximo **5 segundos**.
-- `.mp3` precisa de `ffmpeg` no PC de quem ouve (o instalador instala).
+- `mp3, wav, ogg, opus, flac, m4a, aac`, up to 5 MB.
+- Plays for at most **5 seconds**.
+- `.mp3` needs `ffmpeg` on the listener's PC (the installer installs it).
 
-## Deu problema?
+## Troubleshooting
 
-Rode `commit-sounds` e `commit-sounds testar`: cada erro vem com a dica.
+Run `commit-sounds` and `commit-sounds test`: every error comes with a hint.
 
-| Sintoma | O que fazer |
-|---------|-------------|
-| Nenhum amigo na sala | Confira se o código é o mesmo. Se o roteador bloqueia broadcast, use `commit-sounds adicionar <ip>` |
-| `nao conectou` | PC do amigo desligado, outra rede ou firewall (`sudo ufw allow 8008`) |
-| `relogio fora de sincronia` | Hora errada em um dos PCs (mais de 10 min de diferença) |
-| `tocou`, mas ninguém ouviu | Volume do amigo; ele pode testar com `commit-sounds testar --aqui` |
-| `Servico: PARADO` | `systemctl --user restart commit-sounds` e `journalctl --user -u commit-sounds -n 30` |
-| `command not found` | Abra um terminal novo (o comando fica em `~/.local/bin`) |
+| Symptom | What to do |
+|---------|------------|
+| No friends in the room | Check the room code is the same. If your router blocks broadcast, use `commit-sounds add <ip>` |
+| `could not connect` | Friend's PC is off, on another network, or its firewall is closed (`sudo ufw allow 8008`) |
+| `clock out of sync` | Wrong date/time on one of the PCs (more than 10 min apart) |
+| `played`, but nobody heard it | Friend's volume; they can try `commit-sounds test --here` |
+| `Service: STOPPED` | `systemctl --user restart commit-sounds` and `journalctl --user -u commit-sounds -n 30` |
+| `command not found` | Open a new terminal (the command lives in `~/.local/bin`) |
 
-## Limitações
+## Limitations
 
-- Só Linux, só na mesma rede.
-- O aviso sai antes do remoto aceitar o push, então um push recusado também toca.
-- O hook global (`core.hooksPath`) faz o git ignorar `.git/hooks` de cada repo.
-- Quem tem o código da sala toca som em todo mundo dela. Não compartilhe fora da turma.
+- Linux only, same network only.
+- The notice goes out before the remote accepts the push, so a rejected push plays too.
+- The global hook (`core.hooksPath`) makes git ignore each repo's `.git/hooks`.
+- Anyone with the room code can play a sound on everyone in the room. Keep it within your group.
 
-## Arquivos
+## Files
 
-Tudo fica em `~/.commit-sounds/` (config, seu som, amigos, cache) e o hook em
-`~/.git-hooks/pre-push`. Porta padrão **8008** (TCP e UDP); a sala inteira
-precisa usar a mesma.
+Everything lives in `~/.commit-sounds/` (config, your sound, friends, cache)
+and the hook in `~/.git-hooks/pre-push`. Default port **8008** (TCP and UDP);
+the whole room must use the same one.
 
-## Contribuir
+## Contributing
 
-Issues e PRs são bem-vindos. O projeto é um único arquivo Python (só stdlib)
-e não tem build nem dependências.
+Issues and PRs are welcome. The project is a single Python file (stdlib only)
+with no build step and no dependencies.
 
-## Licença
+## License
 
 [MIT](LICENSE)

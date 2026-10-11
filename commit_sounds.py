@@ -39,10 +39,10 @@ ANUNCIO_SEG = 30
 ONLINE_SEG = 90
 ESQUECER_SEG = 7 * 24 * 3600
 
-BICHOS = ("sapo", "gato", "pato", "tatu", "onca", "lobo", "urso", "boto",
-          "mico", "anta", "capivara", "jacare", "tucano", "coruja", "galo", "arara")
-CORES = ("azul", "roxo", "verde", "preto", "rosa", "laranja", "dourado", "prata",
-         "branco", "cinza", "vermelho", "amarelo")
+BICHOS = ("frog", "cat", "duck", "fox", "wolf", "bear", "owl", "panda",
+          "otter", "lynx", "tiger", "koala", "eagle", "shark", "llama", "gecko")
+CORES = ("blue", "purple", "green", "black", "pink", "orange", "golden", "silver",
+         "white", "gray", "red", "yellow")
 ALFABETO = "abcdefghjkmnpqrstuvwxyz23456789"
 
 PLAYERS = (
@@ -128,24 +128,24 @@ def assinar(cfg, **extra):
 
 def abrir(cfg, env, nonces=None):
     if not isinstance(env, dict) or not isinstance(env.get("d"), str) or not isinstance(env.get("h"), str):
-        raise Recusado("mensagem invalida", 400)
+        raise Recusado("invalid message", 400)
     esperado = hmac.new(chave(cfg["sala"]), env["d"].encode(), "sha256").hexdigest()
     if not hmac.compare_digest(esperado, env["h"]):
-        raise Recusado("sala diferente")
+        raise Recusado("different room")
     try:
         dados = json.loads(env["d"])
     except ValueError:
-        raise Recusado("mensagem invalida", 400)
+        raise Recusado("invalid message", 400)
     if (not isinstance(dados, dict)
             or not HEX16_RE.fullmatch(str(dados.get("id", "")))
             or not valid_apelido(dados.get("apelido"))
             or not valid_porta(dados.get("porta"))):
-        raise Recusado("mensagem invalida", 400)
+        raise Recusado("invalid message", 400)
     ts = dados.get("ts")
     if not isinstance(ts, int) or abs(time.time() - ts) > JANELA:
-        raise Recusado("relogio fora de sincronia")
+        raise Recusado("clock out of sync")
     if nonces is not None and not nonces.novo(str(dados.get("nonce", ""))):
-        raise Recusado("mensagem repetida", 409)
+        raise Recusado("repeated message", 409)
     return dados
 
 
@@ -244,12 +244,12 @@ def meu_som(cfg):
 def definir_som(cfg, origem):
     origem = Path(origem).expanduser()
     if not origem.is_file():
-        return "arquivo nao encontrado: %s" % origem
+        return "file not found: %s" % origem
     ext = origem.suffix.lower()
     if ext not in VALID_EXTS:
-        return "formato nao suportado: %s (aceitos: %s)" % (ext or "(sem extensao)", ", ".join(sorted(VALID_EXTS)))
+        return "unsupported format: %s (accepted: %s)" % (ext or "(no extension)", ", ".join(sorted(VALID_EXTS)))
     if origem.stat().st_size > TAMANHO_MAX:
-        return "arquivo grande demais (maximo %d MB)" % (TAMANHO_MAX // (1024 * 1024))
+        return "file too large (max %d MB)" % (TAMANHO_MAX // (1024 * 1024))
     APP_DIR.mkdir(parents=True, exist_ok=True)
     destino = APP_DIR / ("meu-som%s" % ext)
     tmp = APP_DIR / ".meu-som.tmp"
@@ -291,7 +291,7 @@ def play_sound(path):
             return nome
         if rc == 0:
             return nome
-        log("%s falhou (rc=%s) em %s; tentando outro player" % (nome, rc, path.name))
+        log("%s failed (rc=%s) on %s; trying another player" % (nome, rc, path.name))
     return None
 
 
@@ -304,18 +304,18 @@ def baixar_som(cfg, dados, ip, destino):
     url = url_amigo({"ip": ip, "porta": dados["porta"]}, "/som")
     status, _, corpo = http(url, cabecalhos=cabecalho_sala(cfg, "som"), timeout=5)
     if status != 200:
-        return "nao consegui baixar o som de %s (HTTP %s)" % (dados["apelido"], status)
+        return "could not download the sound from %s (HTTP %s)" % (dados["apelido"], status)
     if len(corpo) > TAMANHO_MAX:
-        return "som de %s grande demais" % dados["apelido"]
+        return "sound from %s is too large" % dados["apelido"]
     if hashlib.sha256(corpo).hexdigest()[:16] != dados["som_hash"]:
-        return "som baixado de %s nao confere" % dados["apelido"]
+        return "downloaded sound from %s does not match its hash" % dados["apelido"]
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = CACHE_DIR / (".%s.tmp" % destino.name)
     tmp.write_bytes(corpo)
     for velho in CACHE_DIR.glob("%s-*" % dados["id"]):
         velho.unlink(missing_ok=True)
     os.replace(tmp, destino)
-    log("baixei o som novo de %s (%s)" % (dados["apelido"], destino.name))
+    log("downloaded the new sound from %s (%s)" % (dados["apelido"], destino.name))
     return None
 
 
@@ -336,7 +336,7 @@ class Handler(BaseHTTPRequestHandler):
     def _autenticar(self, env):
         cfg = carregar_config()
         if not configurado(cfg):
-            self._json(503, {"erro": "este PC ainda nao foi configurado"})
+            self._json(503, {"erro": "this PC is not set up yet"})
             return cfg, None
         try:
             dados = abrir(cfg, env, NONCES)
@@ -350,7 +350,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         rota = urlparse(self.path).path.rstrip("/")
         if rota not in ("/quem", "/som"):
-            self._json(404, {"erro": "rota nao existe"})
+            self._json(404, {"erro": "route not found"})
             return
         try:
             env = json.loads(self.headers.get("X-Sala", ""))
@@ -364,7 +364,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         som = meu_som(cfg)
         if not som:
-            self._json(404, {"erro": "sem som configurado"})
+            self._json(404, {"erro": "no sound configured"})
             return
         _, corpo, som_hash, ext = som
         self.send_response(200)
@@ -377,7 +377,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if urlparse(self.path).path.rstrip("/") != "/aviso":
-            self._json(404, {"erro": "rota nao existe"})
+            self._json(404, {"erro": "route not found"})
             return
         try:
             tamanho = int(self.headers.get("Content-Length", 0))
@@ -385,7 +385,7 @@ class Handler(BaseHTTPRequestHandler):
             tamanho = 0
         if tamanho <= 0 or tamanho > 65536:
             self.close_connection = True
-            self._json(400, {"erro": "corpo invalido"})
+            self._json(400, {"erro": "invalid body"})
             return
         try:
             env = json.loads(self.rfile.read(tamanho))
@@ -395,11 +395,11 @@ class Handler(BaseHTTPRequestHandler):
         if not dados:
             return
         if dados["id"] == cfg["id"]:
-            self._json(200, {"ok": True, "ignorado": "aviso de mim mesmo"})
+            self._json(200, {"ok": True, "ignorado": "notice from myself"})
             return
         som_hash, ext = str(dados.get("som_hash", "")), dados.get("som_ext")
         if not HEX16_RE.fullmatch(som_hash) or ext not in VALID_EXTS:
-            self._json(400, {"erro": "som invalido no aviso"})
+            self._json(400, {"erro": "invalid sound in notice"})
             return
         if cfg.get("mudo_ate", 0) > time.time():
             self._json(200, {"ok": True, "mudo": True})
@@ -413,11 +413,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
         player = play_sound(som)
         if player:
-            log("tocando som de %s com %s" % (dados["apelido"], player))
+            log("playing sound from %s with %s" % (dados["apelido"], player))
             self._json(200, {"ok": True, "player": player})
         else:
-            log("nenhum player conseguiu tocar o som de %s" % dados["apelido"])
-            self._json(500, {"erro": "nenhum player de audio conseguiu tocar"})
+            log("no player could play the sound from %s" % dados["apelido"])
+            self._json(500, {"erro": "no audio player could play it"})
 
 
 def enviar_oi(sock, cfg, destino, resposta=False):
@@ -445,7 +445,7 @@ def servir_sala(porta_sala):
     try:
         sock.bind(("", porta_sala))
     except OSError as e:
-        log("nao consegui abrir a porta da sala %s/udp (%s); descoberta automatica desligada" % (porta_sala, e))
+        log("could not open room port %s/udp (%s); automatic discovery disabled" % (porta_sala, e))
         return
     threading.Thread(target=anunciar_sempre, args=(sock,), daemon=True).start()
     while True:
@@ -463,7 +463,7 @@ def servir_sala(porta_sala):
         if dados.get("tipo") != "oi" or dados["id"] == cfg["id"]:
             continue
         if registrar(dados, origem[0]):
-            log("amigo na sala: %s (%s)" % (dados["apelido"], origem[0]))
+            log("friend in the room: %s (%s)" % (dados["apelido"], origem[0]))
             if not dados.get("resposta"):
                 enviar_oi(sock, cfg, origem, resposta=True)
 
@@ -482,14 +482,14 @@ def podar_amigos():
 def cmd_servir(args):
     cfg = carregar_config()
     if not configurado(cfg):
-        log("nao configurado ainda; rode: commit-sounds configurar")
+        log("not set up yet; run: commit-sounds setup")
         return 1
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     podar_amigos()
     httpd = ThreadingHTTPServer(("0.0.0.0", cfg["porta"]), Handler)
     httpd.daemon_threads = True
     threading.Thread(target=servir_sala, args=(cfg["porta_sala"],), daemon=True).start()
-    log("%s na sala, ouvindo em %s/tcp e %s/udp" % (cfg["apelido"], cfg["porta"], cfg["porta_sala"]))
+    log("%s in the room, listening on %s/tcp and %s/udp" % (cfg["apelido"], cfg["porta"], cfg["porta_sala"]))
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -522,23 +522,23 @@ def cmd_avisar(args):
     cfg = carregar_config()
     linhas = []
     if not configurado(cfg):
-        linhas.append("nao configurado - nada a fazer")
+        linhas.append("not set up - nothing to do")
     else:
         resultados = enviar_avisos(cfg)
         if resultados is None:
-            linhas.append("sem som configurado - nada a fazer")
+            linhas.append("no sound set - nothing to do")
         elif not resultados:
-            linhas.append("nenhum amigo conhecido na sala")
+            linhas.append("no known friends in the room")
         for a, status, resp in resultados or []:
             if status == 0:
-                linhas.append("  -> %s (%s): FALHA de conexao" % (a["apelido"], a["ip"]))
+                linhas.append("  -> %s (%s): connection FAILED" % (a["apelido"], a["ip"]))
             else:
                 linhas.append("  -> %s (%s): HTTP %s %s" % (a["apelido"], a["ip"], status,
                                                            resp.decode("utf-8", "replace").strip()))
     agora = time.strftime("%F %T")
     APP_DIR.mkdir(parents=True, exist_ok=True)
     with open(LOG_PATH, "a") as f:
-        f.write("%s == push de %s ==\n" % (agora, cfg.get("apelido", "?")))
+        f.write("%s == push by %s ==\n" % (agora, cfg.get("apelido", "?")))
         for linha in linhas:
             f.write("%s %s\n" % (agora, linha))
     return 0
@@ -546,55 +546,55 @@ def cmd_avisar(args):
 
 def dica(status, resp, cfg):
     if status == 0:
-        return "nao conectou: PC desligado, fora da rede ou firewall dele fechado"
+        return "could not connect: PC is off, on another network, or its firewall is closed"
     if status == 200:
         try:
             dados = json.loads(resp)
         except ValueError:
             dados = {}
         if dados.get("mudo"):
-            return "esta no mudo"
-        return "tocou (%s)" % dados.get("player", "?")
+            return "is muted"
+        return "played (%s)" % dados.get("player", "?")
     erro = erro_de(resp)
-    if status == 403 and erro == "sala diferente":
-        return "codigo da sala diferente do seu"
+    if status == 403 and erro == "different room":
+        return "room code differs from yours"
     if status == 403:
-        return "%s: confira a data/hora dos dois PCs" % erro
+        return "%s: check the date/time on both PCs" % erro
     if status == 409:
-        return "aviso duplicado, ignorado"
+        return "duplicate notice, ignored"
     if status == 502:
-        return ("nao conseguiu baixar seu som: o servico deste PC esta rodando? "
-                "a porta %s/tcp esta liberada aqui?" % cfg["porta"])
+        return ("could not download your sound: is the service running on this PC? "
+                "is port %s/tcp open here?" % cfg["porta"])
     if status == 500:
-        return "o PC dele nao conseguiu tocar: falta ffmpeg la, ou use um .wav"
+        return "their PC could not play it: ffmpeg is probably missing there, or use a .wav"
     return "HTTP %s: %s" % (status, erro)
 
 
 def cmd_testar(args):
     cfg = carregar_config()
     if not configurado(cfg):
-        print("Ainda nao configurado. Rode: commit-sounds configurar")
+        print("Not set up yet. Run: commit-sounds setup")
         return 1
     if args.aqui:
         som = meu_som(cfg)
         if not som:
-            print("Voce ainda nao escolheu um som. Rode: commit-sounds som /caminho/som.mp3")
+            print("You have not picked a sound yet. Run: commit-sounds sound /path/to/sound.mp3")
             return 1
         player = play_sound(som[0])
         if player:
-            print("Tocando %s neste PC com %s. Se nao ouviu, confira volume/saida de audio." % (som[0].name, player))
+            print("Playing %s on this PC with %s. If you heard nothing, check volume/audio output." % (som[0].name, player))
             return 0
-        print("Nenhum player conseguiu tocar aqui (instalados: %s)." % (", ".join(players_instalados()) or "nenhum"))
-        print("Instale o ffmpeg (sudo apt install ffmpeg) ou use um som .wav.")
+        print("No player could play it here (installed: %s)." % (", ".join(players_instalados()) or "none"))
+        print("Install ffmpeg (sudo apt install ffmpeg) or use a .wav sound.")
         return 1
     resultados = enviar_avisos(cfg)
     if resultados is None:
-        print("Voce ainda nao escolheu um som. Rode: commit-sounds som /caminho/som.mp3")
+        print("You have not picked a sound yet. Run: commit-sounds sound /path/to/sound.mp3")
         return 1
     if not resultados:
-        print("Nenhum amigo encontrado na sala ainda.")
-        print("  - eles instalaram e usaram o mesmo codigo de sala (%s)?" % cfg["sala"])
-        print("  - se a rede bloquear a descoberta: commit-sounds adicionar IP_DO_AMIGO")
+        print("No friends found in the room yet.")
+        print("  - did they install it and use the same room code (%s)?" % cfg["sala"])
+        print("  - if the network blocks discovery: commit-sounds add FRIEND_IP")
         return 1
     falhou = 0
     for a, status, resp in resultados:
@@ -607,28 +607,28 @@ def cmd_testar(args):
 def cmd_status(args):
     cfg = carregar_config()
     if not configurado(cfg):
-        print("Ainda nao configurado. Rode: commit-sounds configurar")
+        print("Not set up yet. Run: commit-sounds setup")
         return 1
     som = meu_som(cfg)
     local, _, _ = http("http://127.0.0.1:%s/quem" % cfg["porta"], cabecalhos=cabecalho_sala(cfg, "quem"), timeout=2)
     players = players_instalados()
-    print("Voce:     %s" % cfg["apelido"])
-    print("Sala:     %s" % cfg["sala"])
-    print("Seu som:  %s" % (som[0].name if som else "NENHUM -> commit-sounds som /caminho/som.mp3"))
-    print("Servico:  %s" % ("rodando" if local == 200 else "PARADO -> systemctl --user restart commit-sounds"))
-    audio = ", ".join(players) if players else "NENHUM player -> sudo apt install ffmpeg"
+    print("You:      %s" % cfg["apelido"])
+    print("Room:     %s" % cfg["sala"])
+    print("Sound:    %s" % (som[0].name if som else "NONE -> commit-sounds sound /path/to/sound.mp3"))
+    print("Service:  %s" % ("running" if local == 200 else "STOPPED -> systemctl --user restart commit-sounds"))
+    audio = ", ".join(players) if players else "NO player -> sudo apt install ffmpeg"
     if players and "ffplay" not in players:
-        audio += " (sem ffmpeg: mp3 dos amigos pode nao tocar)"
+        audio += " (no ffmpeg: friends' mp3s may not play)"
     print("Audio:    %s" % audio)
     if cfg.get("mudo_ate", 0) > time.time():
-        print("Mudo:     ate %s" % time.strftime("%H:%M", time.localtime(cfg["mudo_ate"])))
+        print("Muted:    until %s" % time.strftime("%H:%M", time.localtime(cfg["mudo_ate"])))
 
     amigos = list(listar_amigos(cfg).values())
     print("")
     if not amigos:
-        print("Nenhum amigo na sala ainda.")
-        print("  Convide: mande o codigo '%s' e peca pra rodarem bash instalar.sh" % cfg["sala"])
-        print("  Rede bloqueia descoberta? commit-sounds adicionar IP_DO_AMIGO")
+        print("No friends in the room yet.")
+        print("  Invite: send them the code '%s' and ask them to run bash install.sh" % cfg["sala"])
+        print("  Network blocks discovery? commit-sounds add FRIEND_IP")
         return 0
 
     def checar(a):
@@ -637,14 +637,14 @@ def cmd_status(args):
 
     with ThreadPoolExecutor(max_workers=min(16, len(amigos))) as ex:
         resultados = list(ex.map(checar, amigos))
-    print("Amigos:")
+    print("Friends:")
     for a, status, resp in sorted(resultados, key=lambda r: r[0]["apelido"].lower()):
         if status == 200:
             estado = "online"
         elif status == 0:
-            estado = "offline (visto %s)" % tempo_atras(a.get("visto", 0))
+            estado = "offline (seen %s)" % tempo_atras(a.get("visto", 0))
         else:
-            estado = "erro: %s" % dica(status, resp, cfg)
+            estado = "error: %s" % dica(status, resp, cfg)
         print("  %-12s %-21s %s" % (a["apelido"], "%s:%s" % (a["ip"], a["porta"]), estado))
     return 0
 
@@ -652,12 +652,12 @@ def cmd_status(args):
 def tempo_atras(ts):
     seg = int(time.time() - ts)
     if seg < 120:
-        return "agora"
+        return "just now"
     if seg < 7200:
-        return "ha %d min" % (seg // 60)
+        return "%d min ago" % (seg // 60)
     if seg < 172800:
-        return "ha %d h" % (seg // 3600)
-    return "ha %d dias" % (seg // 86400)
+        return "%d h ago" % (seg // 3600)
+    return "%d days ago" % (seg // 86400)
 
 
 def perguntar(texto, atual=None):
@@ -675,20 +675,20 @@ def cmd_configurar(args):
 
     apelido = args.apelido or cfg.get("apelido", "")
     if interativo:
-        apelido = perguntar("Seu apelido (letras, numeros, _ . -)", apelido or None)
+        apelido = perguntar("Your nickname (letters, numbers, _ . -)", apelido or None)
         while not valid_apelido(apelido):
-            print("  apelido invalido")
-            apelido = perguntar("Seu apelido (letras, numeros, _ . -)")
+            print("  invalid nickname")
+            apelido = perguntar("Your nickname (letters, numbers, _ . -)")
     if not valid_apelido(apelido):
-        print("apelido invalido: %r" % apelido)
+        print("invalid nickname: %r" % apelido)
         return 1
 
     sala = args.sala or cfg.get("sala", "")
     if interativo:
         if sala:
-            sala = perguntar("Codigo da sala", sala)
+            sala = perguntar("Room code", sala)
         else:
-            sala = perguntar("Codigo da sala (Enter para criar uma nova)")
+            sala = perguntar("Room code (Enter to create a new one)")
     sala = normalizar_sala(sala) if sala else gerar_sala()
     sala_nova = sala != cfg.get("sala")
 
@@ -702,12 +702,12 @@ def cmd_configurar(args):
     elif interativo:
         atual = cfg.get("som") if meu_som(cfg) else None
         while True:
-            texto = "Caminho do seu som (mp3, wav, ogg...)"
-            caminho = perguntar(texto + (" [Enter mantem o atual]" if atual else ""))
+            texto = "Path to your sound (mp3, wav, ogg...)"
+            caminho = perguntar(texto + (" [Enter keeps the current one]" if atual else ""))
             if not caminho and atual:
                 break
             if not caminho:
-                print("  precisa de um som; ex: ~/Downloads/risada.mp3")
+                print("  a sound is required; e.g. ~/Downloads/laugh.mp3")
                 continue
             falha = definir_som(cfg, caminho)
             if not falha:
@@ -718,8 +718,8 @@ def cmd_configurar(args):
         atualizar_amigos(lambda amigos: amigos.clear())
 
     print("")
-    print("Configurado: %s na sala '%s'." % (apelido, sala))
-    print("Para chamar amigos, mande esse codigo de sala pra eles.")
+    print("Done: %s in room '%s'." % (apelido, sala))
+    print("To invite friends, send them this room code.")
     return 0
 
 
@@ -730,46 +730,46 @@ def cmd_som(args):
         print(falha)
         return 1
     gravar_json(CONFIG_PATH, cfg)
-    print("Som trocado para %s. Os amigos recebem o novo no seu proximo push." % Path(args.arquivo).name)
+    print("Sound changed to %s. Friends get the new one on your next push." % Path(args.arquivo).name)
     return 0
 
 
 def cmd_sala(args):
     cfg = carregar_config()
     if not configurado(cfg):
-        print("Ainda nao configurado. Rode: commit-sounds configurar")
+        print("Not set up yet. Run: commit-sounds setup")
         return 1
     print(cfg["sala"])
     if sys.stdout.isatty():
         print("")
-        print("Para alguem entrar: clonar o commit-sounds, rodar 'bash instalar.sh' e usar esse codigo.")
+        print("To join: clone commit-sounds, run 'bash install.sh' and use this code.")
     return 0
 
 
 def cmd_adicionar(args):
     cfg = carregar_config()
     if not configurado(cfg):
-        print("Ainda nao configurado. Rode: commit-sounds configurar")
+        print("Not set up yet. Run: commit-sounds setup")
         return 1
     host, _, porta = args.endereco.replace("http://", "").rstrip("/").partition(":")
     porta = int(porta) if porta.isdigit() else 8008
     if not HOST_RE.fullmatch(host) or not valid_porta(porta):
-        print("endereco invalido: %s (ex: 192.168.0.15 ou 192.168.0.15:8008)" % args.endereco)
+        print("invalid address: %s (e.g. 192.168.0.15 or 192.168.0.15:8008)" % args.endereco)
         return 1
     status, _, resp = http("http://%s:%s/quem" % (host, porta), cabecalhos=cabecalho_sala(cfg, "quem"))
     if status != 200:
-        print("Nao consegui falar com %s:%s -> %s" % (host, porta, dica(status, resp, cfg)))
+        print("Could not reach %s:%s -> %s" % (host, porta, dica(status, resp, cfg)))
         return 1
     try:
         dados = abrir(cfg, json.loads(resp))
     except (ValueError, Recusado) as e:
-        print("Resposta estranha de %s:%s (%s)" % (host, porta, e))
+        print("Unexpected reply from %s:%s (%s)" % (host, porta, e))
         return 1
     if dados["id"] == cfg["id"]:
-        print("Esse endereco e o seu proprio PC.")
+        print("That address is your own PC.")
         return 1
     registrar(dados, host, manual=True)
-    print("Adicionado: %s (%s:%s)" % (dados["apelido"], host, porta))
+    print("Added: %s (%s:%s)" % (dados["apelido"], host, porta))
     return 0
 
 
@@ -783,64 +783,69 @@ def cmd_remover(args):
         return len(alvos)
 
     if atualizar_amigos(fn):
-        print("Removido: %s (se ele continuar na sala, volta a aparecer sozinho)" % args.apelido)
+        print("Removed: %s (if they are still in the room, they will show up again on their own)" % args.apelido)
         return 0
-    print("Nao conheco nenhum amigo chamado %s" % args.apelido)
+    print("No friend named %s" % args.apelido)
     return 1
 
 
 def cmd_mudo(args):
     cfg = carregar_config()
     texto = (args.minutos or "60").lower()
-    if texto in ("0", "off", "nao", "desligar"):
+    if texto in ("0", "off", "no"):
         cfg.pop("mudo_ate", None)
         gravar_json(CONFIG_PATH, cfg)
-        print("Mudo desligado.")
+        print("Mute off.")
         return 0
     if not texto.isdigit():
-        print("uso: commit-sounds mudo [minutos | off]")
+        print("usage: commit-sounds mute [minutes | off]")
         return 1
     cfg["mudo_ate"] = int(time.time()) + int(texto) * 60
     gravar_json(CONFIG_PATH, cfg)
-    print("Mudo ate %s. Para desligar antes: commit-sounds mudo off" % time.strftime("%H:%M", time.localtime(cfg["mudo_ate"])))
+    print("Muted until %s. To unmute sooner: commit-sounds mute off" % time.strftime("%H:%M", time.localtime(cfg["mudo_ate"])))
     return 0
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="commit-sounds", description="toca o som dos amigos quando eles dao git push")
+    parser = argparse.ArgumentParser(prog="commit-sounds", description="plays your friends' sounds when they git push")
     sub = parser.add_subparsers(dest="comando")
 
-    sub.add_parser("status", help="mostra sua config e quais amigos estao online")
-    p = sub.add_parser("testar", help="toca seu som nos amigos agora")
-    p.add_argument("--aqui", action="store_true", help="toca seu som neste PC, para testar o audio")
-    p = sub.add_parser("som", help="troca o seu som")
-    p.add_argument("arquivo")
-    sub.add_parser("sala", help="mostra o codigo da sala para convidar alguem")
-    p = sub.add_parser("adicionar", help="adiciona um amigo pelo IP, se a descoberta automatica falhar")
-    p.add_argument("endereco", help="IP ou IP:porta")
-    p = sub.add_parser("remover", help="esquece um amigo")
-    p.add_argument("apelido")
-    p = sub.add_parser("mudo", help="silencia os sons por um tempo")
-    p.add_argument("minutos", nargs="?", help="minutos (padrao 60) ou off")
-    p = sub.add_parser("configurar", help="define apelido, sala e som")
-    p.add_argument("--apelido")
-    p.add_argument("--sala")
-    p.add_argument("--som")
-    sub.add_parser("servir", help="roda o servico (usado pelo systemd)")
-    sub.add_parser("avisar", help="avisa os amigos de um push (usado pelo hook)")
+    sub.add_parser("status", help="show your config and which friends are online")
+    p = sub.add_parser("test", help="play your sound on your friends' PCs now")
+    p.add_argument("--here", dest="aqui", action="store_true", help="play your sound on this PC, to test the audio")
+    p = sub.add_parser("sound", help="change your sound")
+    p.add_argument("arquivo", metavar="file")
+    sub.add_parser("room", help="show the room code to invite someone")
+    p = sub.add_parser("add", help="add a friend by IP, if automatic discovery fails")
+    p.add_argument("endereco", metavar="address", help="IP or IP:port")
+    p = sub.add_parser("remove", help="forget a friend")
+    p.add_argument("apelido", metavar="nickname")
+    p = sub.add_parser("mute", help="silence sounds for a while")
+    p.add_argument("minutos", metavar="minutes", nargs="?", help="minutes (default 60) or off")
+    p = sub.add_parser("setup", help="set nickname, room and sound")
+    p.add_argument("--nick", dest="apelido")
+    p.add_argument("--room", dest="sala")
+    p.add_argument("--sound", dest="som")
+    sub.add_parser("serve", help="run the service (used by systemd)")
+    sub.add_parser("notify", help="notify friends of a push (used by the hook)")
 
-    args = parser.parse_args()
+    legado = {"testar": "test", "som": "sound", "sala": "room", "adicionar": "add", "remover": "remove",
+              "mudo": "mute", "configurar": "setup", "servir": "serve", "avisar": "notify"}
+    argv = sys.argv[1:]
+    if argv and argv[0] in legado:
+        argv[0] = legado[argv[0]]
+    args = parser.parse_args(argv)
     comandos = {
         "status": cmd_status,
-        "testar": cmd_testar,
-        "som": cmd_som,
-        "sala": cmd_sala,
-        "adicionar": cmd_adicionar,
-        "remover": cmd_remover,
-        "mudo": cmd_mudo,
-        "configurar": cmd_configurar,
-        "servir": cmd_servir,
-        "avisar": cmd_avisar,
+        "test": cmd_testar,
+        "sound": cmd_som,
+        "room": cmd_sala,
+        "add": cmd_adicionar,
+        "remove": cmd_remover,
+        "mute": cmd_mudo,
+        "setup": cmd_configurar,
+        "serve": cmd_servir,
+        "notify": cmd_avisar,
     }
     return comandos.get(args.comando or "status")(args)
 
